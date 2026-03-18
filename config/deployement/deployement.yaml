@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      initContainers:
+        - name: script-init
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cp /config-src/index.html /nginx/index.html
+              IP_LOCAL=$(hostname -i | awk '{print $1}')
+              sed -i "s/xxx/$IP_LOCAL/g" /nginx/index.html
+          volumeMounts:
+            - name: config-source
+              mountPath: /config-src
+            - name: nginx-html-writable
+              mountPath: /nginx
+      containers:
+        - name: nginx
+          image: nginx:1.14.2
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-conf
+              readOnly: true
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-html-writable
+              mountPath: /nginx
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: config-nginx
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: config-source
+          configMap:
+            name: config-nginx
+            items:
+              - key: index.html
+                path: index.html
+        - name: nginx-html-writable
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-nginx
+data:
+  nginx.conf: |
+    user nginx;
+    events { worker_connections 1024; }
+    http {
+        server {
+            listen 80;
+            location / {
+                root /nginx/;
+                index index.html;
+            }
+        }
+    }
+  index.html: |
+    <html>
+      <body>
+        <h1>Hello, World!</h1>
+        <h2>Mon IP est : xxx</h2>
+      </body>
+    </html>
