@@ -46,7 +46,7 @@ spec:
               readOnly: true
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
-            - name: nginx-html-writable
+            - name: config-source
               mountPath: /usr/share/nginx/html # Chemin standard Nginx
       volumes:
         - name: nginx-conf
@@ -61,5 +61,3 @@ spec:
             items:
               - key: index.html
                 path: index.html
-        - name: nginx-html-writable
-          emptyDir: {}
