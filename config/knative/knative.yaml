@@ -1,0 +1,81 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: service-optimise
+spec:
+  template:
+    metadata:
+      annotations:
+        # Nombre minimum de pods (0 par défaut pour le "scale-to-zero")
+        autoscaling.knative.dev/minScale: "1"
+        # Nombre maximum de pods
+        autoscaling.knative.dev/maxScale: "10"
+    spec:
+      initContainers:
+        - name: script-init
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cp /config-src/index.html /nginx/index.html
+              IP_LOCAL=$(hostname -i | awk '{print $1}')
+              sed -i "s/xxx/$IP_LOCAL/g" /nginx/index.html
+          volumeMounts:
+            - name: config-source
+              mountPath: /config-src
+            - name: nginx-html-writable
+              mountPath: /nginx
+      containers:
+        - name: nginx
+          image: nginx:1.14.2
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-conf
+              readOnly: true
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-html-writable
+              mountPath: /nginx
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: config-nginx
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: config-source
+          configMap:
+            name: config-knative
+            items:
+              - key: index.html
+                path: index.html
+        - name: nginx-html-writable
+          emptyDir: {}
+
+          apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-knative
+data:
+  nginx.conf: |
+    user nginx;
+    events { worker_connections 1024; }
+    http {
+        server {
+            listen 80;
+            location / {
+                root /nginx/;
+                index index.html;
+            }
+        }
+    }
+  index.html: |
+    <html>
+      <body>
+        <h1>Hello, World!</h1>
+        <h2>Mon IP est : xxx</h2>
+      </body>
+    </html>
+          
+
