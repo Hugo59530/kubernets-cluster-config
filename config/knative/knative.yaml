@@ -36,22 +36,6 @@ spec:
         autoscaling.knative.dev/minScale: "1"
         autoscaling.knative.dev/maxScale: "10"
     spec:
-      initContainers:
-        - name: script-init
-          image: alpine:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              # On copie la source vers le volume partagé
-              cp /config-src/index.html /web-target/index.html
-              # On récupère l'IP et on remplace le placeholder
-              IP_LOCAL=$(hostname -i | awk '{print $1}')
-              sed -i "s/xxx/$IP_LOCAL/g" /web-target/index.html
-          volumeMounts:
-            - name: config-source
-              mountPath: /config-src
-            - name: nginx-html-writable
-              mountPath: /web-target
       containers:
         - name: nginx
           image: nginx:alpine # Version alpine plus légère
